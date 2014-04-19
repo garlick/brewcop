@@ -1,4 +1,4 @@
-/* Read the weight (lbs) in 'wp', internally retrying while scale is in motion.
+/* Read the weight (lb) in 'wp', internally retrying while scale is in motion.
  * On success, return 0.  On error, return -1 and set errno, e.g.
  * ERANGE: Scale over capacity / under capacity 
  * EDOM: Scale zeroing error

@@ -22,19 +22,11 @@
  *****************************************************************************/
 /* scale.c - read Avery-Berkel 6702-16658 bench scale */
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <termios.h>
-#include <unistd.h>
 #include <errno.h>
-#include <string.h>
-#include <time.h>
-#include <signal.h>
-#include <stdint.h>
 
 #include "scale.h"
 
@@ -71,6 +63,7 @@ error:
 	return -1;
 
 done:
+	//*wp = weight * 0.453592; /* lbs to kg */
 	*wp = weight;
 	return 0;
 }
@@ -92,10 +85,6 @@ FILE *scale_init(char *devname)
 	tio.c_cflag &= ~CSTOPB;	/* 1 stop bit */
 	tio.c_cflag |= PARENB;	/* enable parity */
 	tio.c_cflag &= ~PARODD;	/* use even parity */
-	//tio.c_cflag &= ~CRTSCTS;/* disable hw flow */
-	//cfmakeraw(&tio);
-	//tio.c_cc[VMIN] = 1;
-	//tio.c_cc[VTIME] = 0;
 	if (tcsetattr(fd, TCSANOW, &tio) < 0)
 		goto error;
 	return fdopen (fd, "r+");
@@ -110,6 +99,7 @@ void scale_fini (FILE *fp)
 	fclose (fp);
 }
 
+#if 0
 int main (int argc, char *argv[])
 {
 	FILE *fp;
@@ -117,15 +107,17 @@ int main (int argc, char *argv[])
 
 	if (!(fp = scale_init ("/dev/ttyUSB0"))) {
 		perror ("/dev/ttyUSB0");
-		exit (1);
+		return 1;
 	}
 
 	if (scale_read (fp, &weight) < 0) {
-		fprintf (stderr, "scale_read failed\n");
-		exit (1);
+		perror ("scale_read");
+		return 1;
 	}
 
-	printf ("Weight: %flb\n", weight);
+	printf ("Weight: %flbs\n", weight);
 	
 	scale_fini (fp);
+	return 0;
 }
+#endif
