@@ -1,0 +1,192 @@
+/* query.c - send query, receive weight and status */
+
+/* Avery-Berkel 6702-16658 bench scale in ECR mode
+ * with default config.
+ *
+ * Send: "W\r"
+ * Expect: VALUE + STATUS
+ *     or: STATUS
+ * STATUS is (6 bytes) "\rS00\r\003"
+ * VALUE is (10 bytes) "\n00.000LB\n" (decimal may move)
+ */
+
+const char *path = "/dev/ttyAMA0";
+
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <termios.h>
+#include <errno.h>
+
+/* Open and config serial port specified by 'path' for 9600, 7E1.
+ */
+int scale_open (const char *path)
+{
+	int fd;
+	struct termios tio;
+	int saved_errno;
+
+	if ((fd = open (path, O_RDWR)) < 0)
+		return -1;
+	if (tcgetattr(fd, &tio) < 0)
+		goto error_close;
+	cfsetspeed(&tio, B9600);/* 9600 baud */
+	tio.c_cflag &= ~CSIZE;	/* 7 bits */
+	tio.c_cflag |= CS7;
+	tio.c_cflag &= ~CSTOPB;	/* 1 stop bit */
+	tio.c_cflag |= PARENB;	/* enable parity */
+	tio.c_cflag &= ~PARODD;	/* use even parity */
+	if (tcsetattr(fd, TCSANOW, &tio) < 0)
+		goto error_close;
+	if (tcflush (fd, TCIOFLUSH) < 0)
+		goto error_close;
+	return fd;
+error_close:
+	saved_errno = errno;
+	close (fd);
+	errno = saved_errno;
+	return -1;
+}
+
+/* Read a response terminated by ETX (0x03)
+ */
+int read_response (int fd, char *buf, int size)
+{
+	int len = 0;
+	while (len < size) {
+		int n = read (fd, &buf[len], 1);
+		if (n < 0)
+			return -1;
+		if (n == 0) {
+			errno = ENODATA;
+			return -1;
+		}
+		len += n;
+		if (buf[len - 1] == 0x03) // ETX
+			break;
+	}
+	return len;
+}
+
+/* Interpret 6 byte status string.
+ */
+int parse_status (const char buf[6], const char **message, int *rc)
+{
+	if (buf[0] != '\n' || buf[1] != 'S' || buf[4] != '\r' || buf[5] != 3)
+		return -1;
+	if (buf[2] == '0' && buf[3] == '0') {
+		*message = "OK";
+		*rc = 0;
+	}
+	else if (buf[2] == '1' && buf[3] == '0') {
+		*message = "Weight not stable";
+		*rc = -1;
+	}
+	else if (buf[2] == '2' && buf[3] == '0') {
+		*message = "Zero";
+		*rc = 0;
+	}
+	else if (buf[2] == '0' && buf[3] == '1') {
+		*message = "Under capacity";
+		*rc = -1;
+	}
+	else if (buf[2] == '0' && buf[3] == '2') {
+		*message = "Over capacity";
+		*rc = -1;
+	}
+	else if (buf[2] == '1' && buf[3] == '1') {
+		*message = "Under capacity";
+		*rc = -1;
+	}
+	else
+		return -1;
+	return 0;
+}
+
+/* Interpret 10 byte value string, returning weight in pounds
+ */
+int parse_value (const char buf[10], double *wp)
+{
+	char *endptr;
+	double weight;
+	if (buf[0] != '\n' || buf[7] != 'L' || buf[8] != 'B' || buf[9] != '\r')
+		return -1;
+	weight = strtod (&buf[1], &endptr);
+	if (endptr - buf != 7)
+		return -1;
+	*wp = weight;
+	return 0;
+}
+
+int main (int argc, char *argv[])
+{
+	int fd;
+	int len;
+	char buf[64];
+	const char *errmsg;
+	char *status;
+	double weight;
+	int rc;
+
+	fd = scale_open (path);
+	if (fd < 0) {
+		perror (path);
+		return 1;
+	}
+
+	/* Query */
+	if (write (fd, "W\r", 2) < 0) {
+		perror ("write");
+		return 1;
+	}
+
+	/* Response */
+	len = read_response (fd, buf, sizeof (buf));
+	if (len < 0) {
+		perror ("read response");
+		return 1;
+	}
+	/* Expecting 6 or 16 bytes.
+	 * Set 'status' to point to status portion.
+	 */
+	if (len == 6)
+		status = buf;
+	else if (len == 16)
+		status = buf + 10;
+	else {
+		fprintf (stderr, "Unexpected response (%d bytes) '%*s'\n", len, len, buf);
+		return 1;
+	}
+	/* Parse status.  If there is a scale error, report it.
+	 */
+	if (parse_status (status, &errmsg, &rc) < 0) {
+		fprintf (stderr, "Error parsing status response\n");
+		return 1;
+	}
+	if (rc < 0) {
+		fprintf (stderr, "Scale error: %s\n", errmsg);
+		return 1;
+	}
+	/* Not sure if this can happen.  Got Zero or OK but
+	 * without a value.
+	 */
+	if (len != 16) {
+		fprintf (stderr, "Value not returned\n");
+		return 1;
+	}
+	/* Parse the value.
+	 * This code assume units are pounds, which seems to be the default
+	 * for the test scale.
+	 */
+	if (parse_value (buf, &weight) < 0) {
+		fprintf (stderr, "Error parsing value response\n");
+		return 1;
+	}
+	printf ("%f\n", weight);
+	if (close (fd) < 0) {
+		perror ("close");
+		return 1;
+	}
+	return 0;
+}
