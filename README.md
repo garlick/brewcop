@@ -10,8 +10,8 @@ as it gets filled/emptied.
 Right now there is a primitive C program for querying the
 [Avery-Berkel 6702 bench scale](http://www.scaleservice.net/manuals/NCI/Scale%20Manual%206700SERVC.pdf)
 
-The scale is interfaced to a raspberry pi 2 with a[touch screen],
-using an [RS-232 converter](https://www.amazon.com/gp/product/B00OPU2QJ4).
+The scale is interfaced to a raspberry pi 2 using an
+[RS-232 converter](https://www.amazon.com/gp/product/B00OPU2QJ4).
 The device appears as `/dev/ttyAMA0` on the pi, after disabling
 console output in `raspi-config`.  No NULL modem adapter was
 required between the converter and the scale, which expects a
