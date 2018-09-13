@@ -10,12 +10,18 @@
  * VALUE is (10 bytes) "\n00.000LB\n" (decimal may move)
  */
 
+/* N.B. Check the interwebs for pi serial port fun.
+ * In short, raspi-config can enable the port and disable serial console.
+ * On the pi3, there are further complications concerning bluetooth.
+ */
 const char *path = "/dev/ttyAMA0";
 
 
+#include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <termios.h>
 #include <errno.h>
 
@@ -27,19 +33,18 @@ int scale_open (const char *path)
 	struct termios tio;
 	int saved_errno;
 
-	if ((fd = open (path, O_RDWR)) < 0)
+	if ((fd = open (path, O_RDWR | O_NOCTTY)) < 0)
 		return -1;
-	if (tcgetattr(fd, &tio) < 0)
+	memset (&tio, 0, sizeof (tio));
+	tio.c_cflag = B9600 | CS7 | PARENB | CLOCAL | CREAD;
+	tio.c_iflag = 0;
+	tio.c_oflag = 0;
+	tio.c_lflag = 0;
+	tio.c_cc[VTIME] = 0; // no timeout
+	tio.c_cc[VMIN] = 1; // ready with 1 char
+	if (tcflush (fd, TCIFLUSH) < 0)
 		goto error_close;
-	cfsetspeed(&tio, B9600);/* 9600 baud */
-	tio.c_cflag &= ~CSIZE;	/* 7 bits */
-	tio.c_cflag |= CS7;
-	tio.c_cflag &= ~CSTOPB;	/* 1 stop bit */
-	tio.c_cflag |= PARENB;	/* enable parity */
-	tio.c_cflag &= ~PARODD;	/* use even parity */
 	if (tcsetattr(fd, TCSANOW, &tio) < 0)
-		goto error_close;
-	if (tcflush (fd, TCIOFLUSH) < 0)
 		goto error_close;
 	return fd;
 error_close:
