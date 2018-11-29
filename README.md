@@ -1,8 +1,8 @@
-### coffeepot
+### BREWCOP
 
-Not much to see here.
+**B**REWCOP is a **R**aspberry pi that **E**lectronically **W**eighs **CO**ffee **P**ots
 
-There's a vague plan to put a point-of-sale scale by the
+There's a Hackathon project to put a point-of-sale scale by the
 coffee pot at work, and use the weight to infer how much
 coffee is in the pot, then send slack notifications to people
 as it gets filled/emptied.
