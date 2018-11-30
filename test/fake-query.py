@@ -14,7 +14,7 @@ def get_weight(pot, water, fudge_factor):
         return random.uniform(0, fudge_factor)
 
 def output_weight(weight):
-    print(f"{weight:.04f}")
+    print("{:.04f}".format(weight))
 
 def inf():
     return iter(lambda:0,1)
