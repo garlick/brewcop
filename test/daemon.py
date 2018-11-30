@@ -2,7 +2,7 @@
 
 import os
 import time
-from enum import Enum, auto
+from enum import Enum
 from pathlib import PosixPath
 import argparse
 import subprocess
@@ -50,9 +50,9 @@ class Reading():
     def __str__(self):
         if self.state in [ScaleStates.COFFEEPOT, ScaleStates.OVERWEIGHT]:
             fl_ounces = pounds_to_fl_ounces(self.weight - args.pot)
-            return f'{self.state_str} ({fl_ounces:0.1f}ozs)'
+            return "{} ({})ozs".format(self.state_str, fl_ounces)
         else:
-            return f'{self.state_str}'
+            return '{}'.format(self.state_str)
 
 def control_loop():
     past_states = deque(maxlen=2)
@@ -60,7 +60,7 @@ def control_loop():
         curr_state = Reading(get_current_weight())
         past_states.appendleft(curr_state)
         if all([x == curr_state for x in past_states]):
-            print(f'{curr_state}')
+            print('{}'.format(curr_state))
         else:
             print("Indeterminate state")
         time.sleep(args.interval)
