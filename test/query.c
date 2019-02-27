@@ -1,3 +1,13 @@
+/************************************************************\
+ * Copyright 2018 Jim Garlick <garlick.jim@gmail.com>
+ * (c.f. COPYING)
+ *
+ * This file is part of BREWCOP, a coffee pot monitor.
+ * For details, see https://github.com/garlick/brewcop.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+\************************************************************/
+
 /* query.c - send query, receive weight and status */
 
 /* Avery-Berkel 6702-16658 bench scale in ECR mode
