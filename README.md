@@ -18,3 +18,7 @@ required between the converter and the scale, which expects a
 serial configuration of 9600,7N1.
 
 The raspberry pi has a [Touch Screen](https://www.raspberrypi.org/products/raspberry-pi-touch-display/).
+
+#### Release
+
+SPDX-License-Identifier: BSD-3-Clause
