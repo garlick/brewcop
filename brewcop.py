@@ -22,6 +22,7 @@ class Scale:
 
     def __init__(self):
         self._weight = 0.0
+        self._weight_is_valid = False
         self.ecr_status = None
 
         self.ser = serial.Serial()
@@ -66,8 +67,29 @@ class Scale:
             assert response[7:10] == b"LB\r"
             self._weight = float(response[1:7]) * 453.592
             self.ecr_set_status(response[10:16])
+            self._weight_is_valid = True
         else:
             self.ecr_set_status(response)
+            self._weight_is_valid = False
+
+    @property
+    def display(self):
+        if self._weight_is_valid:
+            return "{:.1f}g".format(self._weight)
+        elif self.ecr_status == b"10" or self.ecr_status == b"30":
+            return "moving"
+        # elif self.ecr_status == b"20":
+        #    return "-0-"
+        elif self.ecr_status == b"01" or self.ecr_status == b"11":
+            return "under"
+        elif self.ecr_status == b"02":
+            return "over"
+        else:
+            return "status:" + self.ecr_status.decode("utf-8")
+
+    @property
+    def weight_is_valid(self):
+        return self._weight_is_valid
 
     @property
     def weight(self):
@@ -188,7 +210,6 @@ def on_tare(w):
         indicator.set_text(("red", "tare"))
     else:
         indicator.set_text(("green", "tare"))
-        meter.set_text("{:.1f}g".format(instrument.weight))
 
 
 def poll_scale(_loop, _data):
@@ -201,8 +222,9 @@ def poll_scale(_loop, _data):
         meter.set_text("----")
     else:
         indicator.set_text("")
-        meter.set_text("{:.1f}g".format(instrument.weight))
-        brewcop.weight = instrument.weight
+        meter.set_text(instrument.display)
+        if instrument.weight_is_valid:
+            brewcop.weight = instrument.weight
     main_loop.set_alarm_in(poll_period, poll_scale)
 
 
