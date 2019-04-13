@@ -12,30 +12,62 @@
 
 import urwid
 import subprocess
+import serial
 
 poll_period = 2
 
 
 class Scale:
     path_helper = "/usr/local/bin/scale_query"
+    path_serial = "/dev/ttyAMA0"
 
     def __init__(self):
-        self.gross_weight = 0.0
-        self.tare_offset = 0.0
+        self._weight = 0.0
+        self.ecr_status = None
 
-    def tare(self):
-        self.tare_offset = self.gross_weight
+        self.ser = serial.Serial()
+        self.ser.port = self.path_serial
+        self.ser.baudrate = 9600
+        self.ser.sertimeout = 0.25
+        self.ser.parity = serial.PARITY_EVEN
+        self.ser.bytesize = serial.SEVENBITS
+        self.ser.stopbits = serial.STOPBITS_ONE
+        self.ser.xonxoff = False
+        self.ser.rtscts = False
+        self.ser.dsrdtr = False
+
+    def ecr_set_status(self, response):
+        assert len(response) == 6
+        assert response[0:2] == b"\nS"
+        assert response[4:5] == b"\r"
+        self.ecr_status = response[2:4]
+
+    def ecr_read(self):
+        # Read to EOT (\x03)
+        message = bytearray()
+        while len(message) == 0 or message[-1] != 3:
+            ch = self.ser.read(size=1)
+            assert len(ch) == 1  # fail on timeout
+            message.append(ch[0])
+        return message
+
+    def zero(self):
+        self.ser.open()
+        self.ser.write(b"Z\r")
+        response = self.ecr_read()
+        self.ecr_set_status(response)
+        self.ser.close()
 
     def poll(self):
         out = subprocess.Popen(
             [self.path_helper], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         stdout, stderr = out.communicate()
-        self.gross_weight = float(stdout) * 453.592
+        self._weight = float(stdout) * 453.592
 
     @property
     def weight(self):
-        return self.gross_weight - self.tare_offset
+        return self._weight
 
 
 # Placeholder for "application logic"
@@ -146,9 +178,13 @@ def on_clean(w, state):
 
 
 def on_tare(w):
-    instrument.tare()
-    indicator.set_text(("green", "tare"))
-    meter.set_text("{:.1f}g".format(instrument.weight))
+    try:
+        instrument.zero()
+    except:
+        indicator.set_text(("red", "tare"))
+    else:
+        indicator.set_text(("green", "tare"))
+        meter.set_text("{:.1f}g".format(instrument.weight))
 
 
 def poll_scale(_loop, _data):
