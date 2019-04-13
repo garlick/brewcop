@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 ##############################################################
 #  Copyright 2019 Jim Garlick <garlick.jim@gmail.com>
@@ -16,7 +16,7 @@ import subprocess
 poll_period = 2
 
 
-class Scale(object):
+class Scale:
     path_helper = "/usr/local/bin/scale_query"
 
     def __init__(self):
@@ -39,7 +39,7 @@ class Scale(object):
 
 
 # Placeholder for "application logic"
-class Brewcop(object):
+class Brewcop:
     valid_modes = ["beans", "brew", "clean"]
 
     def __init__(self):
