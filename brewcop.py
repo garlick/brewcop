@@ -18,7 +18,6 @@ poll_period = 2
 
 
 class Scale:
-    path_helper = "/usr/local/bin/scale_query"
     path_serial = "/dev/ttyAMA0"
 
     def __init__(self):
@@ -35,6 +34,7 @@ class Scale:
         self.ser.xonxoff = False
         self.ser.rtscts = False
         self.ser.dsrdtr = False
+        self.ser.open()
 
     def ecr_set_status(self, response):
         assert len(response) == 6
@@ -52,18 +52,22 @@ class Scale:
         return message
 
     def zero(self):
-        self.ser.open()
+        self.ser.reset_input_buffer()
         self.ser.write(b"Z\r")
         response = self.ecr_read()
         self.ecr_set_status(response)
-        self.ser.close()
 
     def poll(self):
-        out = subprocess.Popen(
-            [self.path_helper], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        stdout, stderr = out.communicate()
-        self._weight = float(stdout) * 453.592
+        self.ser.reset_input_buffer()
+        self.ser.write(b"W\r")
+        response = self.ecr_read()
+        if len(response) == 16:
+            assert response[0:1] == b"\n"
+            assert response[7:10] == b"LB\r"
+            self._weight = float(response[1:7]) * 453.592
+            self.ecr_set_status(response[10:16])
+        else:
+            self.ecr_set_status(response)
 
     @property
     def weight(self):
