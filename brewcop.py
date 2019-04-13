@@ -75,7 +75,7 @@ class Scale:
     @property
     def display(self):
         if self._weight_is_valid:
-            return "{:.1f}g".format(self._weight)
+            return "{:.0f}g".format(self._weight)
         elif self.ecr_status == b"10" or self.ecr_status == b"30":
             return "moving"
         # elif self.ecr_status == b"20":
