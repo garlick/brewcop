@@ -14,7 +14,7 @@ import urwid
 import subprocess
 import serial
 
-poll_period = 2
+poll_period = 0.5
 
 
 class Scale:
