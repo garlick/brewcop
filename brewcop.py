@@ -79,17 +79,17 @@ class Scale:
     @property
     def display(self):
         if self._weight_is_valid:
-            return "{:.0f}g".format(self._weight - self.tare_offset)
-        elif self.ecr_status == b"10" or self.ecr_status == b"30":
-            return "moving"
+            return ("green", "{:.0f}g".format(self._weight - self.tare_offset))
+        elif self.ecr_status == b"10" or self.ecr_status == b"30": # moving
+            return ("deselect", "{:.0f}g".format(self._weight - self.tare_offset))
         # elif self.ecr_status == b"20":
         #    return "-0-"
         elif self.ecr_status == b"01" or self.ecr_status == b"11":
-            return "under"
+            return ("red", "under")
         elif self.ecr_status == b"02":
-            return "over"
+            return ("red", "over")
         else:
-            return "status:" + self.ecr_status.decode("utf-8")
+            return ("red", "status:" + self.ecr_status.decode("utf-8"))
 
     @property
     def weight_is_valid(self):
