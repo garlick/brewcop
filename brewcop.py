@@ -24,6 +24,7 @@ class Scale:
         self._weight = 0.0
         self._weight_is_valid = False
         self.ecr_status = None
+        self.tare_offset = 0.0
 
         self.ser = serial.Serial()
         self.ser.port = self.path_serial
@@ -72,10 +73,13 @@ class Scale:
             self.ecr_set_status(response)
             self._weight_is_valid = False
 
+    def tare(self):
+        self.tare_offset = self._weight;
+
     @property
     def display(self):
         if self._weight_is_valid:
-            return "{:.0f}g".format(self._weight)
+            return "{:.0f}g".format(self._weight - self.tare_offset)
         elif self.ecr_status == b"10" or self.ecr_status == b"30":
             return "moving"
         # elif self.ecr_status == b"20":
@@ -93,7 +97,7 @@ class Scale:
 
     @property
     def weight(self):
-        return self._weight
+        return self._weight - self.tare_offset
 
 
 # Placeholder for "application logic"
@@ -205,7 +209,7 @@ def on_clean(w, state):
 
 def on_tare(w):
     try:
-        instrument.zero()
+        instrument.tare()
     except:
         indicator.set_text(("red", "tare"))
     else:
