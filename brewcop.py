@@ -120,33 +120,6 @@ class NoScale(Scale):
         return ("deselect", "no scale");
 
 
-# Placeholder for "application logic"
-class Brewcop:
-    valid_modes = ["beans", "brew", "clean"]
-
-    def __init__(self):
-        self._mode = "beans"
-        self._weight = 0.0
-
-    @property
-    def mode(self):
-        return self._mode
-
-    @mode.setter
-    def mode(self, value):
-        if not value in self.valid_modes:
-            raise ValueError("Invalid mode")
-        self._mode = value
-
-    @property
-    def weight(self):
-        return self._weight
-
-    @weight.setter
-    def weight(self, value):
-        self._weight = value
-
-
 # Tuples of (Key, font color, background color)
 palette = [
     ("background", "dark blue", ""),
@@ -189,8 +162,6 @@ try:
 except:
     instrument = NoScale()
 
-brewcop = Brewcop()
-
 banner = urwid.Text(("green", "B R E W C O P"), align="left")
 
 indicator = urwid.Text("", align="right")
@@ -218,8 +189,8 @@ def poll_scale(_loop, _data):
     else:
         indicator.set_text("")
         meter.set_text(instrument.display)
-        if instrument.weight_is_valid:
-            brewcop.weight = instrument.weight
+        #if instrument.weight_is_valid:
+        #    brewcop.weight = instrument.weight
     main_loop.set_alarm_in(poll_period, poll_scale)
 
 
