@@ -100,6 +100,26 @@ class Scale:
         return self._weight - self.tare_offset
 
 
+# For testing UI without scale present
+class NoScale(Scale):
+    def __init__(self):
+        self._weight = 0.0
+        self._weight_is_valid = True
+        self.ecr_status = None
+        self.tare_offset = 0.0
+        return
+
+    def poll(self):
+        return
+
+    def zero(self):
+        return
+
+    @property
+    def display(self):
+        return ("deselect", "no scale");
+
+
 # Placeholder for "application logic"
 class Brewcop:
     valid_modes = ["beans", "brew", "clean"]
@@ -164,7 +184,11 @@ jgs \""--..__                              __..--""/
                       `"""----"""`
 '''
 
-instrument = Scale()
+try:
+    instrument = Scale()
+except:
+    instrument = NoScale()
+
 brewcop = Brewcop()
 
 banner = urwid.Text(("green", "B R E W C O P"), align="left")
