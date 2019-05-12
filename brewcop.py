@@ -207,39 +207,6 @@ meter_box = urwid.Filler(meter_box, "bottom", None, 7)
 meter_box = urwid.LineBox(meter_box)
 
 
-def on_beans(w, state):
-    if state:
-        brewcop.mode = "beans"
-        w.set_label(("select", w.label))
-    else:
-        w.set_label(("deselect", w.label))
-
-
-def on_brew(w, state):
-    if state:
-        brewcop.mode = "brew"
-        w.set_label(("select", w.label))
-    else:
-        w.set_label(("deselect", w.label))
-
-
-def on_clean(w, state):
-    if state:
-        brewcop.mode = "clean"
-        w.set_label(("select", w.label))
-    else:
-        w.set_label(("deselect", w.label))
-
-
-def on_tare(w):
-    try:
-        instrument.tare()
-    except:
-        indicator.set_text(("red", "tare"))
-    else:
-        indicator.set_text(("green", "tare"))
-
-
 def poll_scale(_loop, _data):
     indicator.set_text(("green", "poll"))
     main_loop.draw_screen()
@@ -261,25 +228,10 @@ def handle_input(key):
         raise urwid.ExitMainLoop()
 
 
-rgroup = []
-
-beans = urwid.RadioButton(rgroup, ("select", "Beans"), on_state_change=on_beans)
-beans = urwid.LineBox(beans)
-
-brew = urwid.RadioButton(rgroup, ("deselect", "Brew"), on_state_change=on_brew)
-brew = urwid.LineBox(brew)
-
-clean = urwid.RadioButton(rgroup, ("deselect", "Clean"), on_state_change=on_clean)
-clean = urwid.LineBox(clean)
-
-tare = urwid.Button("Tare", on_press=on_tare)
-tare = urwid.LineBox(tare)
-
 header = urwid.Columns([banner, indicator], 2)
 body = urwid.Overlay(meter_box, background, "center", 50, "middle", 8)
-footer = urwid.GridFlow([beans, brew, clean, tare], 14, 4, 0, "center")
 
-layout = urwid.Frame(header=header, body=body, footer=footer)
+layout = urwid.Frame(header=header, body=body)
 main_loop = urwid.MainLoop(layout, palette, unhandled_input=handle_input)
 main_loop.set_alarm_in(0, poll_scale)
 main_loop.run()
