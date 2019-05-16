@@ -171,7 +171,7 @@ class Brewcop:
     pot_capacity_g = 1250  # 1g per mL H20
 
     banner_msg = ("green", "B R E W C O P")
-    off_msg = ("red", "Brewcop is offline. Replace pot to begin monitoring...")
+    off_msg = ("red", "Brewcop is offline. Replace pot to continue monitoring...")
 
     """
     Urwid color palette.
