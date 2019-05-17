@@ -31,7 +31,7 @@ class Scale:
         self.ser = serial.Serial()
         self.ser.port = self.path_serial
         self.ser.baudrate = 9600
-        self.ser.sertimeout = 0.25
+        self.ser.timeout = 0.25
         self.ser.parity = serial.PARITY_EVEN
         self.ser.bytesize = serial.SEVENBITS
         self.ser.stopbits = serial.STOPBITS_ONE
