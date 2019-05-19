@@ -11,7 +11,6 @@
 ##############################################################
 
 import urwid
-import subprocess
 import serial
 
 
