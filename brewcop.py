@@ -12,6 +12,8 @@
 
 import urwid
 import serial
+from collections import deque
+import time
 
 
 class Scale:
@@ -318,6 +320,93 @@ jgs \""--..__                              __..--""/
         self.pbar.set_completion(value)
 
 
+class Brains:
+    """
+    Add some scale memory and semantics for interpreting a series
+    of weights as human activity.
+
+    Implement a state machine consisting of the following states:
+    unknown - no scale readings stored yet
+    brewing - scale readings have shown some increase over last 30s
+    ready - scale readings are stable/decreasing and pot still has content
+    empty - scale readings are stable/decreasing and pot content is low
+    """
+
+    """Retain scale samples for history_length seconds"""
+    history_length = 30
+
+    def __init__(self, tick_period=1, empty_thresh=0, stale_thresh=60 * 60 * 8):
+        self.history = deque(maxlen=int(self.history_length / tick_period))
+        self.pot_empty_thresh_g = empty_thresh
+        self.stale_thresh = stale_thresh
+        self.state = "unknown"
+        self.timestamp = 0
+
+    def notify(self):
+        """Stub for slack notification"""
+        return
+
+    def increasing(self):
+        """
+        Return true if history shows (any) values increasing relative
+        to a predecessor.
+        N.B. Ignores l[i] < l[i + 1].
+        """
+        l = list(self.history)
+        return any(x > y for x, y in zip(l, l[1:]))
+
+    def brewcheck(self):
+        """
+        Process new scale reading, transitioning state, if needed.
+        Call notify() on brewing->ready state transition.
+        """
+        if self.increasing():
+            if self.state != "brewing":
+                self.state = "brewing"
+                self.timestamp = time.time()
+        elif self.history[0] <= self.pot_empty_thresh_g:
+            if self.state != "empty":
+                self.state = "empty"
+                self.timestamp = time.time()
+        else:
+            if self.state == "brewing":  # only notify on brewing->ready
+                self.notify()
+            if self.state != "ready":
+                self.state = "ready"
+                self.timestamp = time.time()
+
+    def store(self, w):
+        """Record a scale measurement"""
+        self.history.appendleft(w)
+        self.brewcheck()
+
+    def timestr(self, t):
+        """Return a human-friendly string representing elapsed time t"""
+        daysecs = 60 * 60 * 24
+        if t < daysecs:
+            return time.strftime("%H:%M:%S", time.gmtime(t))
+        elif t < daysecs * 2:
+            return "1 day"
+        else:
+            return "{} days".format(int(t / daysecs))
+
+    @property
+    def display(self):
+        """Get message text describing the state, with time since entered"""
+        t = time.time() - self.timestamp
+        timestr = self.timestr(t)
+        if self.state == "brewing":
+            return ("red", "Brewing, elapsed: {}".format(timestr))
+        elif self.state == "ready" and t < self.stale_thresh:
+            return ("green", "Ready, elapsed: {}".format(timestr))
+        elif self.state == "ready":
+            return ("red", "Ready, elapsed: {} (stale)".format(timestr))
+        elif self.state == "empty":
+            return ("red", "Emptyish, elapsed: {}".format(timestr))
+        else:
+            return ""
+
+
 class Brewcop:
     """
     Main Brewcop class.
@@ -328,7 +417,10 @@ class Brewcop:
     """Values for Technivorm Moccamaster insulated carafe"""
     pot_tare_g = 796
     pot_capacity_g = 1250  # 1g per mL H20
+    pot_empty_thresh_g = 50
 
+    """Declare coffee stale after 4h"""
+    stale_thresh = 60 * 60 * 4
 
     def __init__(self):
         try:
@@ -336,7 +428,11 @@ class Brewcop:
         except:
             self.scale = NoScale()
         self.disp = DisplayHelper(pot_capacity_mL=self.pot_capacity_g)
-
+        self.brains = Brains(
+            tick_period=self.tick_period,
+            empty_thresh=self.pot_empty_thresh_g,
+            stale_thresh=self.stale_thresh,
+        )
         self._online = False
 
     @property
@@ -390,6 +486,8 @@ class Brewcop:
             else:
                 self.disp.progress(w)
                 self.online = True
+                self.brains.store(w)
+        self.disp.headC = self.brains.display
 
     def run(self):
         """Enter urwid's event loop.  Start ticker and handle input"""
