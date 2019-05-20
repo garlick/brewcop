@@ -158,24 +158,13 @@ class Progress_mL(urwid.ProgressBar):
         return "{:.0f} mL".format(self.current)
 
 
-class Brewcop:
-    """
-    Main Brewcop class.
-    """
-
-    tick_period = 0.5
-
-    """Values for Technivorm Moccamaster insulated carafe"""
-    pot_tare_g = 796
-    pot_capacity_g = 1250  # 1g per mL H20
-
-    banner_msg = ("green", "B R E W C O P")
-    off_msg = ("red", "Brewcop is offline. Replace pot to continue monitoring...")
+class DisplayHelper:
 
     """
     Urwid color palette.
     Tuples of (Key, font color, background color)
     """
+
     palette = [
         ("background", "dark blue", ""),
         ("deselect", "dark gray", ""),
@@ -185,7 +174,6 @@ class Brewcop:
         ("pb_todo", "black", "dark red"),
         ("pb_done", "black", "dark green"),
     ]
-
     """
     Source: https://www.asciiart.eu/food-and-drinks/coffee-and-tea
     N.B. this one had no attribution on that site except author's initials,
@@ -216,63 +204,140 @@ jgs \""--..__                              __..--""/
                       `"""----"""`
 '''
 
-    def __init__(self):
-        try:
-            self.scale = Scale()
-        except:
-            self.scale = NoScale()
-        self._indicator = urwid.Text("", align="right")
+    def __init__(self, pot_capacity_mL=100):
+        # header
+        headL = urwid.Text(("green", "B R E W C O P"), align="left")
+        self._headC = urwid.Text("", align="center")
+        self._headR = indicator = urwid.Text("", align="right")
+        self.header = urwid.Columns([headL, self._headC, self._headR], 3)
+
+        # body
+        bg = urwid.Text(self.coffee_cup)
+        bg = urwid.AttrMap(bg, "background")
+        bg = urwid.Padding(bg, align="center", width=56)
+        self.background = urwid.Filler(bg)
+
+        # body + meter pop-up (offline mode)"""
         self._meter = urwid.BigText("", urwid.Thin6x6Font())
-        self._online = False
-        self.banner = urwid.Text(self.banner_msg, align="left")
-        self.status = urwid.Text(self.off_msg, align="center")
-        self.pbar = Progress_mL("pb_todo", "pb_done", 0, self.pot_capacity_g)
-        self.background = self.init_background(self.coffee_cup)
-        self.meterbody = self.init_meterbody(self._meter, self.background)
-        self.header = urwid.Columns([self.banner, self._indicator], 2)
-        self.layout = urwid.Frame(
-            header=self.header, body=self.meterbody, footer=self.status
+        m = urwid.AttrMap(self._meter, "green")
+        m = urwid.Padding(m, align="center", width="clip")
+        m = urwid.Filler(m, "bottom", None, 7)
+        m = urwid.LineBox(m)
+        self.meterbody = urwid.Overlay(m, self.background, "center", 50, "middle", 8)
+
+        # footer
+        self.pbar = Progress_mL("pb_todo", "pb_done", 0, pot_capacity_mL)
+        self.footmsg = urwid.Text(
+            ("red", "Brewcop is offline. Replace pot to continue monitoring."),
+            align="center",
         )
+
+        self.layout = urwid.Frame(
+            header=self.header, body=self.meterbody, footer=self.footmsg
+        )
+
         self.main_loop = urwid.MainLoop(
             self.layout, self.palette, unhandled_input=self.handle_input
         )
 
-    def init_background(self, text):
-        """Return the background ascii art text, properly padded and filled."""
-        bg = urwid.Text(text)
-        bg = urwid.AttrMap(bg, "background")
-        bg = urwid.Padding(bg, align="center", width=56)
-        bg = urwid.Filler(bg)
-        return bg
+    def handle_input(self, key):
+        """
+        urwid's event loop calls this function on keyboard events
+        not handled by widgets.
+        """
+        if key == "Q" or key == "q":
+            raise urwid.ExitMainLoop()
 
-    def init_meterbody(self, text, background):
-        """Return meter overlayed on background."""
-        m = urwid.AttrMap(text, "green")
-        m = urwid.Padding(m, align="center", width="clip")
-        m = urwid.Filler(m, "bottom", None, 7)
-        m = urwid.LineBox(m)
-        m = urwid.Overlay(m, background, "center", 50, "middle", 8)
-        return m
+    def tick_wrap(self, _loop, _data):
+        """
+        urwid timer callback to run registered "tick" function periodically.
+        """
+        self.ticker()
+        _loop.set_alarm_in(self.tick_period, self.tick_wrap)
+
+    def run(self, ticker, tick_period):
+        """
+        Register ticker callable, to run every tick_period seconds.
+        Start urwid's main loop.
+        This method does not return until loop exits (press q).
+        """
+        self.ticker = ticker
+        self.tick_period = tick_period
+        self.main_loop.set_alarm_in(0, self.tick_wrap)
+        self.main_loop.run()
+
+    def redraw(self):
+        """
+        Force screen redraw.
+        It normally redraws when control returns to event loop.
+        """
+        self.main_loop.draw_screen()
 
     @property
-    def indicator(self):
-        """Get the indicator text (upper right in header)"""
-        self._indicator.get_text()
+    def headC(self):
+        """Get text from header, center region"""
+        return self._headC.get_text()
 
-    @indicator.setter
-    def indicator(self, value):
-        """Set the indicator text (upper right in header)"""
-        self._indicator.set_text(value)
+    @headC.setter
+    def headC(self, value):
+        """Set text in header, center region"""
+        self._headC.set_text(value)
+
+    @property
+    def headR(self):
+        """Get text from header, right region"""
+        return self._headR.get_text()
+
+    @headR.setter
+    def headR(self, value):
+        """Set text in header, right region"""
+        self._headR.set_text(value)
 
     @property
     def meter(self):
         """Get the meter text (scale reading)"""
-        self._meter.get_text()
+        return self._meter.get_text()
 
     @meter.setter
     def meter(self, value):
         """Set the meter text (scale reading)"""
         self._meter.set_text(value)
+
+    def online(self):
+        """Set online display mode (show background + footer progress bar)"""
+        self.layout.body = self.background
+        self.layout.footer = self.pbar
+
+    def offline(self):
+        """Set offline display mode (show meter + footer message)"""
+        self.layout.body = self.meterbody
+        self.layout.footer = self.footmsg
+
+    def progress(self, value):
+        """Update progress bar value (pot contents in mL)"""
+        self.pbar.set_completion(value)
+
+
+class Brewcop:
+    """
+    Main Brewcop class.
+    """
+
+    tick_period = 0.5
+
+    """Values for Technivorm Moccamaster insulated carafe"""
+    pot_tare_g = 796
+    pot_capacity_g = 1250  # 1g per mL H20
+
+
+    def __init__(self):
+        try:
+            self.scale = Scale()
+        except:
+            self.scale = NoScale()
+        self.disp = DisplayHelper(pot_capacity_mL=self.pot_capacity_g)
+
+        self._online = False
 
     @property
     def online(self):
@@ -288,20 +353,10 @@ jgs \""--..__                              __..--""/
         """
         if self._online and not value:
             self._online = False
-            self.layout.body = self.meterbody
-            self.layout.footer = self.status
+            self.disp.offline()
         elif not self._online and value:
             self._online = True
-            self.layout.body = self.background
-            self.layout.footer = self.pbar
-
-    def handle_input(self, key):
-        """
-        urwid's event loop calls this function on keyboard events
-        not handled by widgets.
-        """
-        if key == "Q" or key == "q":
-            raise urwid.ExitMainLoop()
+            self.disp.online()
 
     def poll_scale(self):
         """
@@ -310,18 +365,18 @@ jgs \""--..__                              __..--""/
         The urwid event loop is stalled while this is happening.
         If it fails, leave the indicator red and set the meter value to ----.
         """
-        self.indicator = ("green", "poll")
-        self.main_loop.draw_screen()
+        self.disp.headR = ("green", "poll")
+        self.disp.redraw()
         try:
             self.scale.poll()
         except:
-            self.indicator = ("red", "poll")
-            self.meter = "----"
+            self.disp.headR = ("red", "poll")
+            self.disp.meter = "----"
         else:
-            self.indicator = ""
-            self.meter = self.scale.display
+            self.disp.headR = ""
+            self.disp.meter = self.scale.display
 
-    def tick(self, _loop, _data):
+    def tick(self):
         """
         urwid's event loop calls this function on tick_period intervals.
         Read the scale, then update the meter and the progress bar.
@@ -333,14 +388,12 @@ jgs \""--..__                              __..--""/
             if w < 0:
                 self.online = False
             else:
-                self.pbar.set_completion(w)
+                self.disp.progress(w)
                 self.online = True
-        self.main_loop.set_alarm_in(self.tick_period, self.tick)
 
     def run(self):
         """Enter urwid's event loop.  Start ticker and handle input"""
-        self.main_loop.set_alarm_in(0, self.tick)
-        self.main_loop.run()
+        self.disp.run(self.tick, self.tick_period)
 
 
 brewcop = Brewcop()
