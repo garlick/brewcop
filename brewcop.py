@@ -260,6 +260,8 @@ jgs \""--..__                              __..--""/
             self.layout, self.palette, unhandled_input=self.handle_input
         )
 
+        self._online = False
+
     def handle_input(self, key):
         """
         urwid's event loop calls this function on keyboard events
@@ -325,13 +327,17 @@ jgs \""--..__                              __..--""/
 
     def online(self):
         """Set online display mode (show background + footer progress bar)"""
-        self.layout.body = self.background
-        self.layout.footer = self.pbar
+        if not self._online:
+            self.layout.body = self.background
+            self.layout.footer = self.pbar
+            self._online = True
 
     def offline(self):
         """Set offline display mode (show meter + footer message)"""
-        self.layout.body = self.meterbody
-        self.layout.footer = self.footmsg
+        if self._online:
+            self.layout.body = self.meterbody
+            self.layout.footer = self.footmsg
+            self._online = False
 
     def progress(self, value):
         """Update progress bar value (pot contents in mL)"""
@@ -451,26 +457,6 @@ class Brewcop:
             empty_thresh=self.pot_empty_thresh_g,
             stale_thresh=self.stale_thresh,
         )
-        self._online = False
-
-    @property
-    def online(self):
-        """Get online status (True or False)"""
-        return self._online
-
-    @online.setter
-    def online(self, value):
-        """
-        Set online status (True or False).
-        If online, hide the meter and show coffee progress bar.
-        If offline, show the meter and replace progress bar with offline msg.
-        """
-        if self._online and not value:
-            self._online = False
-            self.disp.offline()
-        elif not self._online and value:
-            self._online = True
-            self.disp.online()
 
     def poll_scale(self):
         """
@@ -500,10 +486,10 @@ class Brewcop:
         if self.scale.weight_is_valid:
             w = self.scale.weight - self.pot_tare_g
             if w < 0:
-                self.online = False
+                self.disp.offline()
             else:
                 self.disp.progress(w)
-                self.online = True
+                self.disp.online()
                 self.brains.store(w)
         self.disp.headC = self.brains.display
 
