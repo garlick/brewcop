@@ -479,8 +479,9 @@ class Brewcop:
     def tick(self):
         """
         urwid's event loop calls this function on tick_period intervals.
-        Read the scale, then update the meter and the progress bar.
-        Switch online mode depending on weight reading.
+        Read the scale, switch online mode depending on weight reading.
+        If online, update progress bar and offload brewing/ready heuristic
+        to the Brains class.
         """
         self.poll_scale()
         if self.scale.weight_is_valid:
