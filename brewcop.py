@@ -27,7 +27,6 @@ class Scale:
         self._weight = 0.0
         self._weight_is_valid = False
         self.ecr_status = None
-        self.tare_offset = 0.0
 
         self.ser = serial.Serial()
         self.ser.port = self.path_serial
@@ -83,10 +82,6 @@ class Scale:
             self.ecr_set_status(response)
             self._weight_is_valid = False
 
-    def tare(self):
-        """Incorporate weight of container on scale into future measurements"""
-        self.tare_offset = self._weight
-
     @property
     def at_zero(self):
         """
@@ -105,9 +100,9 @@ class Scale:
         Show red over/under on scale range error.
         """
         if self._weight_is_valid:
-            return ("green", "{:.0f}g".format(self._weight - self.tare_offset))
+            return ("green", "{:.0f}g".format(self._weight))
         elif self.ecr_status == b"10" or self.ecr_status == b"30":  # moving
-            return ("deselect", "{:.0f}g".format(self._weight - self.tare_offset))
+            return ("deselect", "{:.0f}g".format(self._weight))
         elif self.ecr_status == b"01" or self.ecr_status == b"11":
             return ("red", "under")
         elif self.ecr_status == b"02":
@@ -122,8 +117,8 @@ class Scale:
 
     @property
     def weight(self):
-        """Return most recently measured weight, less tare offset if any."""
-        return self._weight - self.tare_offset
+        """Return most recently measured weight."""
+        return self._weight
 
 
 # For testing UI without scale present
@@ -136,7 +131,6 @@ class NoScale(Scale):
         self._weight = 0.0
         self._weight_is_valid = True
         self.ecr_status = None
-        self.tare_offset = 0.0
         return
 
     def poll(self):
