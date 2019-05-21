@@ -161,12 +161,30 @@ class Progress_mL(urwid.ProgressBar):
 
 
 class DisplayHelper:
+    """
+    Contain Brewcop's urwid display layout and reactor loop.
+    Brewcop should call run() to enter reactor, registering
+    it's tick() callback to run periodically.
+
+    The display has two modes: offline and online, selectable
+    by calling methods offline() and online().  Online mode
+    displays a progress bar.  Offline mode displays meter
+    "pop-up" and a footer message about being offline.
+
+    Progress bar may be updated by calling progress() method.
+
+    Meter reading may be updated by setting the meter property.
+
+    Header center and right regions may be updated by setting
+    the headC and headR properties, respectively.
+
+    Force a screen redraw with redraw() method.
+    """
 
     """
     Urwid color palette.
     Tuples of (Key, font color, background color)
     """
-
     palette = [
         ("background", "dark blue", ""),
         ("deselect", "dark gray", ""),
