@@ -14,6 +14,7 @@ import urwid
 import serial
 from collections import deque
 import time
+import argparse
 
 
 class Scale:
@@ -40,15 +41,13 @@ class Scale:
     the word "over" or "under" is displayed in red.
     """
 
-    path_serial = "/dev/ttyAMA0"
-
-    def __init__(self):
+    def __init__(self, path_serial):
         self._weight = 0.0
         self._weight_is_valid = False
         self.ecr_status = None
 
         self.ser = serial.Serial()
-        self.ser.port = self.path_serial
+        self.ser.port = path_serial
         self.ser.baudrate = 9600
         self.ser.timeout = 0.25
         self.ser.parity = serial.PARITY_EVEN
@@ -237,7 +236,7 @@ jgs \""--..__                              __..--""/
                       `"""----"""`
 '''
 
-    def __init__(self, pot_capacity_mL=100):
+    def __init__(self, pot_capacity_mL):
         # header
         headL = urwid.Text(("green", "B R E W C O P"), align="left")
         self._headC = urwid.Text("", align="center")
@@ -288,16 +287,16 @@ jgs \""--..__                              __..--""/
         urwid timer callback to run registered "tick" function periodically.
         """
         self.ticker()
-        _loop.set_alarm_in(self.tick_period, self.tick_wrap)
+        _loop.set_alarm_in(self.tick_period_s, self.tick_wrap)
 
-    def run(self, ticker, tick_period):
+    def run(self, ticker, tick_period_s):
         """
-        Register ticker callable, to run every tick_period seconds.
+        Register ticker callable, to run every tick_period_s seconds.
         Start urwid's main loop.
         This method does not return until loop exits (press q).
         """
         self.ticker = ticker
-        self.tick_period = tick_period
+        self.tick_period_s = tick_period_s
         self.main_loop.set_alarm_in(0, self.tick_wrap)
         self.main_loop.run()
 
@@ -369,13 +368,10 @@ class Brains:
     empty - scale readings are stable/decreasing and pot content is low
     """
 
-    """Retain scale samples for history_length seconds"""
-    history_length = 30
-
-    def __init__(self, tick_period=1, empty_thresh=0, stale_thresh=60 * 60 * 8):
-        self.history = deque(maxlen=int(self.history_length / tick_period))
-        self.pot_empty_thresh_g = empty_thresh
-        self.stale_thresh = stale_thresh
+    def __init__(self, tick_period_s, empty_thresh_g, stale_thresh_s, history_length_s):
+        self.history = deque(maxlen=int(history_length_s / tick_period_s))
+        self.pot_empty_thresh_g = empty_thresh_g
+        self.stale_thresh_s = stale_thresh_s
         self.state = "unknown"
         self.timestamp = 0
 
@@ -434,7 +430,7 @@ class Brains:
         timestr = self.timestr(t)
         if self.state == "brewing":
             return ("red", "Brewing, elapsed: {}".format(timestr))
-        elif self.state == "ready" and t < self.stale_thresh:
+        elif self.state == "ready" and t < self.stale_thresh_s:
             return ("green", "Ready, elapsed: {}".format(timestr))
         elif self.state == "ready":
             return ("red", "Ready, elapsed: {} (stale)".format(timestr))
@@ -449,27 +445,27 @@ class Brewcop:
     Main Brewcop class.
     """
 
-    tick_period = 0.5
+    def __init__(
+        self,
+        path_serial,
+        pot_capacity_mL,
+        pot_tare_g,
+        pot_empty_thresh_g,
+        stale_thresh_s,
+        tick_period_s,
+        history_length_s,
+    ):
 
-    """Values for Technivorm Moccamaster insulated carafe"""
-    pot_tare_g = 796
-    pot_capacity_g = 1250  # 1g per mL H20
-    pot_empty_thresh_g = 50
-
-    """Declare coffee stale after 4h"""
-    stale_thresh = 60 * 60 * 4
-
-    def __init__(self):
         try:
-            self.scale = Scale()
+            self.scale = Scale(path_serial)
         except:
             self.scale = NoScale()
-        self.disp = DisplayHelper(pot_capacity_mL=self.pot_capacity_g)
+        self.disp = DisplayHelper(pot_capacity_mL)
         self.brains = Brains(
-            tick_period=self.tick_period,
-            empty_thresh=self.pot_empty_thresh_g,
-            stale_thresh=self.stale_thresh,
+            tick_period_s, pot_empty_thresh_g, stale_thresh_s, history_length_s
         )
+        self.pot_tare_g = pot_tare_g
+        self.tick_period_s = tick_period_s
 
     def poll_scale(self):
         """
@@ -491,7 +487,7 @@ class Brewcop:
 
     def tick(self):
         """
-        urwid's event loop calls this function on tick_period intervals.
+        urwid's event loop calls this function on tick_period_s intervals.
         Read the scale, switch online mode depending on weight reading.
         If online, update progress bar and offload brewing/ready heuristic
         to the Brains class.
@@ -509,10 +505,77 @@ class Brewcop:
 
     def run(self):
         """Enter urwid's event loop.  Start ticker and handle input"""
-        self.disp.run(self.tick, self.tick_period)
+        self.disp.run(self.tick, self.tick_period_s)
 
 
-brewcop = Brewcop()
+"""
+Parse command line arguments.
+Default parameters are for Technivorm Moccamaster insulated carafe
+and scale on direct attached serial port of Raspberry Pi 2.
+"""
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument(
+    "--device",
+    metavar="PATH",
+    default="/dev/ttyAMA0",
+    help="Use PATH as serial device connected to scale",
+)
+parser.add_argument(
+    "--capacity",
+    metavar="N",
+    default=1250,
+    type=int,
+    help="Set capacity of coffee pot (mL)",
+)
+parser.add_argument(
+    "--tare",
+    metavar="N",
+    default=796,
+    type=int,
+    help="Set weight of empty coffee pot (g)",
+)
+parser.add_argument(
+    "--empty",
+    metavar="N",
+    default=50,
+    type=int,
+    help="Set residual coffee limit in empty pot (mL)",
+)
+parser.add_argument(
+    "--stale",
+    metavar="N",
+    default=3600 * 4,
+    type=int,
+    help="Set coffee age when it is considered stale (sec)",
+)
+parser.add_argument(
+    "--tick-period",
+    metavar="N",
+    default=0.5,
+    type=float,
+    help="Set scale polling period (sec)",
+)
+parser.add_argument(
+    "--history",
+    metavar="N",
+    default=30,
+    type=int,
+    help="Set time to keep scale history (sec)",
+)
+
+options = parser.parse_args()
+
+brewcop = Brewcop(
+    path_serial=options.device,
+    pot_capacity_mL=options.capacity,
+    pot_tare_g=options.tare,
+    pot_empty_thresh_g=options.empty,
+    stale_thresh_s=options.stale,
+    tick_period_s=options.tick_period,
+    history_length_s=options.history,
+)
 brewcop.run()
 
 # vim: tabstop=4 shiftwidth=4 expandtab
