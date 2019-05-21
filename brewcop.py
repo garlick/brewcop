@@ -18,7 +18,26 @@ import time
 
 class Scale:
     """
-    Manage the Avery-Berkel 6702-16658 bench scale in ECR mode.
+    Manage the Avery-Berkel 6702-16658 bench scale in ECR (default) mode.
+
+    Call the poll() method to query the scale over serial link.
+    This operation, completed synchronously,  may take a few microseconds
+    and thus affect responsiveness of urwid event loop.
+
+    The poll() might return a scale reading, or it might only return
+    status bits, for example if the scale reading is not yet stable.
+    If it only returned status bits, the weight_is_valid property
+    will be False after poll() returns.
+
+    The weight (in grams) may be obtained via the weight property,
+    with the caveat that it does not reflect the current weight if
+    weight_is_valid is False.
+
+    Urwid text (a color, text tuple) for the scale pop-up window is
+    obtained via the display property.  The display is altered depending
+    on the status bits, for example when unstable, the most recent valid
+    weight is displayed "greyed out", or if under/over scale capacity,
+    the word "over" or "under" is displayed in red.
     """
 
     path_serial = "/dev/ttyAMA0"
