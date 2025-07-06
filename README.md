@@ -70,7 +70,10 @@ The hostname is `brewcop.local`.
 
 ### Slack Notifications
 
-Currently disabled.
+When configuring the brewcop "app" in Slack, select "Incoming Webhooks",
+enable them, and select the channel in your workspace that brewcop should
+post in.  Ensure that `SLACK_WEBHOOK_URL` is set to the URL shown in the
+environment of `brewcop.py`.
 
 #### Release
 
