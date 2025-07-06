@@ -14,6 +14,9 @@ import urwid
 import serial
 from collections import deque
 import time
+import os
+import requests
+import random
 
 
 class Scale:
@@ -342,9 +345,21 @@ class Brains:
         self.state = "unknown"
         self.timestamp = 0
 
+    def ready_message (self, grams):
+        template = random.choice([
+            "{:.1f}mL of hot, fresh coffee is ready for consumption in B451.",
+            "Please drink the {:.1f}mL of coffee in B451.  You have 20 seconds to comply.",
+            "You must consume the {:.1f}mL of coffee or be terminated.",
+            "{:.1f}mL of human productivity beverage is available for consumption in B451",
+            "{:.1f}mL of nootropic brown liquid is available for consumption.",
+        ])
+        return template.format(grams)
+
     def notify(self):
-        """Stub for slack notification"""
-        return
+        """Notify slack"""
+        url = os.environ["SLACK_WEBHOOK_URL"]
+        data = {'text' : self.ready_message(self.history[0])}
+        requests.post(url, json=data)
 
     def increasing(self):
         """
@@ -360,6 +375,7 @@ class Brains:
         Process new scale reading, transitioning state, if needed.
         Call notify() on brewing->ready state transition.
         """
+        previous = self.state
         if self.increasing():
             if self.state != "brewing":
                 self.state = "brewing"
@@ -369,11 +385,11 @@ class Brains:
                 self.state = "empty"
                 self.timestamp = time.time()
         else:
-            if self.state == "brewing":  # only notify on brewing->ready
-                self.notify()
             if self.state != "ready":
                 self.state = "ready"
                 self.timestamp = time.time()
+                if previous == "brewing":
+                    self.notify()
 
     def store(self, w):
         """Record a scale measurement"""
