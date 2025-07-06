@@ -431,7 +431,7 @@ class Brewcop:
     tick_period = 0.5
 
     """Values for Technivorm Moccamaster insulated carafe"""
-    pot_tare_g = 796
+    pot_tare_g = 795
     pot_capacity_g = 1250  # 1g per mL H20
     pot_empty_thresh_g = 50
 
@@ -497,6 +497,8 @@ class Brewcop:
         self.poll_scale()
         if self.scale.weight_is_valid:
             w = self.scale.weight - self.pot_tare_g
+            if (w > -4 and w < 4): # +/-4g for variation in actual pot tare
+                w = 0
             if w < 0:
                 self.online = False
             else:
